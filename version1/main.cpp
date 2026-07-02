@@ -1,0 +1,334 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include "shader_s.h"
+#include <algorithm>
+
+GLFWwindow* initGLFW(int width, int height);
+bool initGLAD();
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void processInput(GLFWwindow *window);
+
+struct Vec3 {
+  float x, y, z;
+};
+
+struct Vertex {
+  Vec3 posicion;
+  Vec3 color;
+};
+
+struct Triangle {
+  Vertex v1, v2, v3;
+};
+
+struct Light {
+  Vec3 posicion;
+
+  Vec3 Lambiental;
+  Vec3 Ldifusa;
+  Vec3 Lespecular;
+};
+
+struct Material {
+  Vec3 Kambiental;
+  Vec3 Kdifusa;
+  Vec3 Kespecular;
+
+  float alpha; //brillo
+};
+
+void normalizar(Vec3& v);
+void dividir_triangulo(const Triangle& t, int n, std::vector<Triangle>& triangulosFinales);
+float dot(Vec3 a, Vec3 b);
+Vec3 restar(Vec3 a, Vec3 b);
+Vec3 sumar(Vec3 a, Vec3 b);
+Vec3 multiplicar(Vec3 a, float escalar);
+Vec3 multiplicarComponente(Vec3 a, Vec3 b);
+Vec3 calcularPhong(const Vec3& P, const Light& luz, const Material& material, const Vec3& camara);
+
+// settings
+const unsigned int SCR_WIDTH = 1200;
+const unsigned int SCR_HEIGHT = 1000;
+
+int main () {
+  GLFWwindow* window = initGLFW(SCR_WIDTH, SCR_HEIGHT);
+  if (!window) return -1;
+
+  if (!initGLAD()) return -1;
+  glEnable(GL_DEPTH_TEST);
+  //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);  //ver modo alambre
+  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+  // Compilar y usar shaders
+  Shader ourShader("shader-vertices.vs", "shader-fragmentos.fs");
+
+  Vertex vertices[4] = {
+    {{0.0f, 0.0f, 1.0f}, 
+    {0.0f, 0.0f, 0.0f}},  // Vértice A
+
+    {{0.0f, 0.942809f, -0.333333f},
+    {0.0f, 0.0f, 0.0f}}, // Vértice B
+
+    {{-0.816497f, -0.471405f, -0.333333f},
+    {0.0f, 0.0f, 0.0f}}, // Vértice C
+
+    {{0.816497f, -0.471405f, -0.333333f},
+    {0.0f, 0.0f, 0.0f}}  // Vértice D
+  };
+
+  Triangle caras[4];
+  caras[0] = {vertices[0], vertices[1], vertices[2]};
+  caras[1] = {vertices[0], vertices[2], vertices[3]};
+  caras[2] = {vertices[0], vertices[3], vertices[1]};
+  caras[3] = {vertices[1], vertices[2], vertices[3]};
+
+  std::vector<Triangle> triangulosFinales;
+
+  Light luz =
+  {
+    {2.5f, 2.5f, 2.5f},   // posición
+
+    {0.3f, 0.3f, 0.3f},   // La
+    {1.0f, 1.0f, 1.0f},   // Ld
+    {1.0f, 1.0f, 1.0f}    // Le
+  };
+
+  Material material = {
+  {0.5f, 0.1f, 0.1f},   // Ka 
+  {0.8f, 0.1f, 0.1f},   // Kd 
+  {1.0f, 1.0f, 1.0f},   // Ks (Brillo totalmente blanco)
+  32.0f                 // alpha
+};
+
+  Vec3 camara ={ 0.0f, 0.0f, 4.0f };
+
+  int iteraciones = 4;
+  for (int i=0; i<4; i++){
+    dividir_triangulo(caras[i], iteraciones, triangulosFinales);
+  }
+
+  std::vector<Vertex> verticesEsfera;
+
+  for (const Triangle& t : triangulosFinales)
+  {
+      verticesEsfera.push_back(t.v1);
+      verticesEsfera.push_back(t.v2);
+      verticesEsfera.push_back(t.v3);
+  }
+
+  for (Vertex& v : verticesEsfera) {
+    v.color = calcularPhong(
+        v.posicion,
+        luz,
+        material,
+        camara
+    );
+  }
+
+  unsigned int VBO, VAO;
+  glGenVertexArrays(1, &VAO);
+  glGenBuffers(1, &VBO);
+
+  //vertices
+  glBindVertexArray(VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBufferData(GL_ARRAY_BUFFER, verticesEsfera.size() * sizeof(Vertex), verticesEsfera.data(), GL_STATIC_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+
+  // render loop
+  while (!glfwWindowShouldClose(window)) {
+    processInput(window);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    // Limpia el buffer de color y el buffer de profundidad antes de dibujar el nuevo frame
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    ourShader.use();
+    glBindVertexArray(VAO);
+
+    glDrawArrays(GL_TRIANGLES, 0, verticesEsfera.size());
+
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+  }
+
+  // Liberar memoria
+  glDeleteVertexArrays(1, &VAO);
+  glDeleteBuffers(1, &VBO);
+
+  glfwTerminate();
+  return 0;
+}
+
+
+// Inicializa GLFW y crea la ventana de OpenGL
+GLFWwindow* initGLFW(int width, int height) {
+  glfwInit();
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+  GLFWwindow* window = glfwCreateWindow(width, height, "Esfera Iluminada", NULL, NULL);
+  if (!window) {
+      std::cout << "Error creando ventana\n";
+      glfwTerminate();
+      return nullptr;
+  }
+
+  glfwMakeContextCurrent(window);
+  return window;
+}
+
+bool initGLAD() {
+  // glad: load all OpenGL function pointers
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+  {
+      std::cout << "Failed to initialize GLAD" << std::endl;
+      return false;
+  }
+  return true;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+void processInput(GLFWwindow *window)
+{
+  if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+      glfwSetWindowShouldClose(window, true);
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// ---------------------------------------------------------------------------------------------
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+  // make sure the viewport matches the new window dimensions; note that width and 
+  // height will be significantly larger than specified on retina displays.
+  glViewport(0, 0, width, height);
+}
+
+//normaliza el vertice proyectandolo en la suoerficie de la esfera de radio 1
+void normalizar (Vec3 &v) {
+  float longitud = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+  if (longitud != 0) {
+    v.x /= longitud;
+    v.y /= longitud;
+    v.z /= longitud;
+  }
+}
+
+Vertex punto_medio (const Vertex& v1, const Vertex& v2) { //const para indicar que no se modificara y & para pasar referencia y no necesitar una copia de la variable
+  Vertex p;
+  p.posicion.x = (v1.posicion.x + v2.posicion.x) / 2.0f;
+  p.posicion.y = (v1.posicion.y + v2.posicion.y) / 2.0f;
+  p.posicion.z = (v1.posicion.z + v2.posicion.z) / 2.0f;
+
+  return p;
+}
+
+void dividir_triangulo (const Triangle& t, int n, std::vector<Triangle>& triangulosFinales) {
+  if (n <= 0) {
+    triangulosFinales.push_back(t);
+    return;
+  }
+  //          B
+  //         / \
+  //        /   \
+  //       /     \
+  //      C-------A 
+
+  //calc puntos medios
+  Vertex pmAB, pmBC, pmCA;
+  pmAB = punto_medio(t.v1, t.v2);
+  pmBC = punto_medio(t.v2, t.v3);
+  pmCA = punto_medio(t.v3, t.v1);
+  //proyectar a la sup de la esfera
+  normalizar(pmAB.posicion);
+  normalizar(pmBC.posicion);
+  normalizar(pmCA.posicion);
+
+  //crear los nuevos 4 triangulos
+  Triangle t1, t2, t3, t4;
+  t1 = {t.v1, pmAB, pmCA};
+  t2 = {t.v2, pmBC, pmAB};
+  t3 = {t.v3, pmCA, pmBC};
+  t4 = {pmAB, pmBC, pmCA};
+
+  dividir_triangulo(t1, n-1, triangulosFinales);
+  dividir_triangulo(t2, n-1, triangulosFinales);
+  dividir_triangulo(t3, n-1, triangulosFinales);
+  dividir_triangulo(t4, n-1, triangulosFinales);
+}
+
+float dot(Vec3 a, Vec3 b) {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+Vec3 restar(Vec3 a, Vec3 b) {
+  return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+Vec3 sumar(Vec3 a, Vec3 b) {
+  return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+Vec3 multiplicar(Vec3 a, float escalar) {
+  return {a.x * escalar, a.y * escalar, a.z * escalar};
+}
+
+Vec3 multiplicarComponente(Vec3 a, Vec3 b) {
+  return {a.x * b.x, a.y * b.y, a.z * b.z};
+}
+
+float distancia(const Vec3& a, const Vec3& b) {
+  //return std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2);
+  return std::sqrt(std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2));
+}
+
+Vec3 calcularPhong(const Vec3& P, const Light& luz, const Material& material, const Vec3& camara) {
+  // normal
+  Vec3 n = P;
+  normalizar(n);
+  // l = luz - P
+  Vec3 l = restar(luz.posicion, P);
+  normalizar(l);
+  // v = desde el P hacia la cámara
+  Vec3 v = restar(camara, P);
+  normalizar(v);
+  // reflector = 2 * (l . n) * n - l
+  Vec3 r = restar(multiplicar(n, 2.0f * dot(l, n)), l);
+  normalizar(r);
+
+  // iluminacion ambiental
+  Vec3 Ia = multiplicarComponente(luz.Lambiental, material.Kambiental);
+
+  float dist = distancia(luz.posicion, P);
+  //float dist_inverso = 1.0f / dist;
+  float dist_inverso = 1.0f / (1.0f + 0.09f * dist + 0.032f * (dist * dist)); //1/(a+b*d+c*d^2) 
+
+  // iluminacion difusa
+  float prodPuntoNL = dot(n, l);
+  float diff = std::max(prodPuntoNL, 0.0f);
+  Vec3 Id = (multiplicar(multiplicarComponente(luz.Ldifusa, material.Kdifusa), diff * dist_inverso));
+  // iluminacion especular
+  float spec = 0.0f;
+  if (prodPuntoNL > 0.0f) { //si el punto esta iluminado (la luz no esta por detras), se calcula la componente especular
+    spec = std::pow(std::max(dot(r, v), 0.0f), material.alpha);
+  }
+  Vec3 Ie = (multiplicar(multiplicarComponente(luz.Lespecular, material.Kespecular), spec * dist_inverso));
+
+  // Sumar todas las componentes
+  Vec3 colorFinal = sumar(sumar(Ia, Id), Ie);
+  
+  //por si se sobrepasa de 1
+  colorFinal.x = std::min(1.0f, std::max(0.0f, colorFinal.x));
+  colorFinal.y = std::min(1.0f, std::max(0.0f, colorFinal.y));
+  colorFinal.z = std::min(1.0f, std::max(0.0f, colorFinal.z));
+  
+  return colorFinal;
+}
