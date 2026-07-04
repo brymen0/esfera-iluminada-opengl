@@ -1,5 +1,3 @@
-// Autor: Bryan Mendoza
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -53,7 +51,7 @@ Vec3 restar(Vec3 a, Vec3 b);
 Vec3 sumar(Vec3 a, Vec3 b);
 Vec3 multiplicar(Vec3 a, float escalar);
 Vec3 multiplicarComponente(Vec3 a, Vec3 b);
-Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Material& material, const Vec3& camara);
+Vec3 calcularPhong(const Vec3& P, const Light& luz, const Material& material, const Vec3& camara);
 Vec3 productoCruz(const Vec3& a, const Vec3& b);
 Vec3 calcularCentroide(const Vec3& a, const Vec3& b, const Vec3& c);
 
@@ -212,7 +210,7 @@ GLFWwindow* initGLFW(int width, int height) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  GLFWwindow* window = glfwCreateWindow(width, height, "Esfera Iluminada V1", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(width, height, "Esfera Iluminada", NULL, NULL);
   if (!window) {
       std::cout << "Error creando ventana\n";
       glfwTerminate();

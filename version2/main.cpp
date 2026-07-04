@@ -23,7 +23,6 @@ struct Vec3 {
 
 struct Vertex {
   Vec3 posicion;
-  Vec3 color;
 };
 
 struct Triangle {
@@ -48,14 +47,6 @@ struct Material {
 
 void normalizar(Vec3& v);
 void dividir_triangulo(const Triangle& t, int n, std::vector<Triangle>& triangulosFinales);
-float dot(Vec3 a, Vec3 b);
-Vec3 restar(Vec3 a, Vec3 b);
-Vec3 sumar(Vec3 a, Vec3 b);
-Vec3 multiplicar(Vec3 a, float escalar);
-Vec3 multiplicarComponente(Vec3 a, Vec3 b);
-Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Material& material, const Vec3& camara);
-Vec3 productoCruz(const Vec3& a, const Vec3& b);
-Vec3 calcularCentroide(const Vec3& a, const Vec3& b, const Vec3& c);
 
 // settings
 const unsigned int SCR_WIDTH = 1200;
@@ -73,17 +64,13 @@ int main () {
   Shader ourShader("shader-vertices.vs", "shader-fragmentos.fs");
 
   Vertex vertices[4] = {
-    {{0.0f, 0.0f, 1.0f}, 
-    {0.0f, 0.0f, 0.0f}},  // Vértice A
+    {{0.0f, 0.0f, 1.0f}}, // Vértice A
 
-    {{0.0f, 0.942809f, -0.333333f},
-    {0.0f, 0.0f, 0.0f}}, // Vértice B
+    {{0.0f, 0.942809f, -0.333333f}}, // Vértice B
 
-    {{-0.816497f, -0.471405f, -0.333333f},
-    {0.0f, 0.0f, 0.0f}}, // Vértice C
+    {{-0.816497f, -0.471405f, -0.333333f}}, // Vértice C
 
-    {{0.816497f, -0.471405f, -0.333333f},
-    {0.0f, 0.0f, 0.0f}}  // Vértice D
+    {{0.816497f, -0.471405f, -0.333333f}}, // Vértice D
   };
 
   Triangle caras[4];
@@ -94,47 +81,13 @@ int main () {
 
   std::vector<Triangle> triangulosFinales;
 
-  Light luz =
-  {
-    {2.5f, 2.5f, 2.5f},   // posición
-
-    {0.3f, 0.3f, 0.3f},   // La
-    {1.0f, 1.0f, 1.0f},   // Ld
-    {1.0f, 1.0f, 1.0f}    // Le
-  };
-
-  Material material = {
-  {0.5f, 0.1f, 0.1f},   // Ka 
-  {0.8f, 0.1f, 0.1f},   // Kd 
-  {1.0f, 1.0f, 1.0f},   // Ks (Brillo totalmente blanco)
-  32.0f                 // alpha
-};
-
-  Vec3 camara ={ 0.0f, 0.0f, 4.0f };
-
   int iteraciones = 4;
   for (int i=0; i<4; i++){
     dividir_triangulo(caras[i], iteraciones, triangulosFinales);
   }
 
   std::vector<Vertex> verticesEsfera;
-
-  for (Triangle& t : triangulosFinales) {
-    Vec3 arista1 = restar(t.v2.posicion, t.v1.posicion);
-    Vec3 arista2 = restar(t.v3.posicion, t.v1.posicion);
-
-    Vec3 normal = productoCruz(arista1, arista2);
-    normalizar(normal);
-
-    Vec3 centroide = calcularCentroide(t.v1.posicion, t.v2.posicion, t.v3.posicion);
-
-    Vec3 colorCara = calcularPhong(centroide, normal, luz, material, camara);
-    //asignamos ese color a los vertices de la cara
-    t.v1.color = colorCara;
-    t.v2.color = colorCara;
-    t.v3.color = colorCara;
-
-    //guardar los vértices ya coloreados para dibujarlos
+  for (const Triangle& t : triangulosFinales) {
     verticesEsfera.push_back(t.v1);
     verticesEsfera.push_back(t.v2);
     verticesEsfera.push_back(t.v3);
@@ -151,8 +104,6 @@ int main () {
   glBufferData(GL_ARRAY_BUFFER, verticesEsfera.size() * sizeof(Vertex), verticesEsfera.data(), GL_STATIC_DRAW);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
-  glEnableVertexAttribArray(1);
 
   // render loop
   while (!glfwWindowShouldClose(window)) {
@@ -212,7 +163,7 @@ GLFWwindow* initGLFW(int width, int height) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  GLFWwindow* window = glfwCreateWindow(width, height, "Esfera Iluminada V1", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(width, height, "Esfera Iluminada V2", NULL, NULL);
   if (!window) {
       std::cout << "Error creando ventana\n";
       glfwTerminate();
@@ -248,15 +199,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
   // make sure the viewport matches the new window dimensions; note that width and 
   // height will be significantly larger than specified on retina displays.
   glViewport(0, 0, width, height);
-}
-
-Vec3 calcularCentroide(const Vec3& a, const Vec3& b, const Vec3& c) {
-  return {
-    (a.x + b.x + c.x) / 3.0f,
-    (a.y + b.y + c.y) / 3.0f,
-    (a.z + b.z + c.z) / 3.0f
-  };
-
 }
 
 //normaliza el vertice proyectandolo en la suoerficie de la esfera de radio 1
@@ -310,81 +252,4 @@ void dividir_triangulo (const Triangle& t, int n, std::vector<Triangle>& triangu
   dividir_triangulo(t2, n-1, triangulosFinales);
   dividir_triangulo(t3, n-1, triangulosFinales);
   dividir_triangulo(t4, n-1, triangulosFinales);
-}
-
-float dot(Vec3 a, Vec3 b) {
-  return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-Vec3 restar(Vec3 a, Vec3 b) {
-  return {a.x - b.x, a.y - b.y, a.z - b.z};
-}
-
-Vec3 sumar(Vec3 a, Vec3 b) {
-  return {a.x + b.x, a.y + b.y, a.z + b.z};
-}
-
-Vec3 multiplicar(Vec3 a, float escalar) {
-  return {a.x * escalar, a.y * escalar, a.z * escalar};
-}
-
-Vec3 multiplicarComponente(Vec3 a, Vec3 b) {
-  return {a.x * b.x, a.y * b.y, a.z * b.z};
-}
-
-Vec3 productoCruz(const Vec3& a, const Vec3& b) {
-  return {
-    a.y * b.z - a.z * b.y,
-    a.z * b.x - a.x * b.z,
-    a.x * b.y - a.y * b.x
-  };
-}
-
-float distancia(const Vec3& a, const Vec3& b) {
-  //return std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2);
-  return std::sqrt(std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2));
-}
-
-Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Material& material, const Vec3& camara) {
-  
-  // l = luz - P
-  Vec3 l = restar(luz.posicion, P);
-  normalizar(l);
-  // v = desde el P hacia la cámara
-  Vec3 v = restar(camara, P);
-  normalizar(v);
-  // reflector = 2 * (l . n) * n - l
-  Vec3 r = restar(multiplicar(n, 2.0f * dot(l, n)), l);
-  normalizar(r);
-
-  // iluminacion ambiental
-  Vec3 Ia = multiplicarComponente(luz.Lambiental, material.Kambiental);
-
-  float dist = distancia(luz.posicion, P);
-  //float dist_inverso = 1.0f / dist;
-  float dist_inverso = 1.0f / (1.0f + 0.09f * dist + 0.032f * (dist * dist)); //1/(a+b*d+c*d^2) 
-
-  // iluminacion difusa
-  float prodPuntoNL = dot(n, l);
-  float diff = std::max(prodPuntoNL, 0.0f);
-  Vec3 Id = (multiplicar(multiplicarComponente(luz.Ldifusa, material.Kdifusa), diff * dist_inverso));
-  // iluminacion especular
-  float spec = 0.0f;
-  /*
-  if (prodPuntoNL > 0.0f) { //si el punto esta iluminado (la luz no esta por detras), se calcula la componente especular
-    spec = std::pow(std::max(dot(r, v), 0.0f), material.alpha);
-  }*/
-  spec = std::pow(std::max(dot(r, v), 0.0f), material.alpha);
-
-  Vec3 Ie = (multiplicar(multiplicarComponente(luz.Lespecular, material.Kespecular), spec * dist_inverso));
-
-  // Sumar todas las componentes
-  Vec3 colorFinal = sumar(sumar(Ia, Id), Ie);
-  
-  //por si se sobrepasa de 1
-  colorFinal.x = std::min(1.0f, std::max(0.0f, colorFinal.x));
-  colorFinal.y = std::min(1.0f, std::max(0.0f, colorFinal.y));
-  colorFinal.z = std::min(1.0f, std::max(0.0f, colorFinal.z));
-  
-  return colorFinal;
 }
