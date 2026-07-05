@@ -56,6 +56,7 @@ Vec3 multiplicarComponente(Vec3 a, Vec3 b);
 Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Material& material, const Vec3& camara);
 Vec3 productoCruz(const Vec3& a, const Vec3& b);
 Vec3 calcularCentroide(const Vec3& a, const Vec3& b, const Vec3& c);
+float distancia(const Vec3& a, const Vec3& b);
 
 // settings
 const unsigned int SCR_WIDTH = 1200;
@@ -99,8 +100,8 @@ int main () {
     {2.5f, 2.5f, 2.5f},   // posición
 
     {0.3f, 0.3f, 0.3f},   // La
-    {1.0f, 1.0f, 1.0f},   // Ld
-    {1.0f, 1.0f, 1.0f}    // Le
+    {15.0f, 15.0f, 15.0f},   // Ld
+    {15.0f, 15.0f, 15.0f}    // Le
   };
 
   Material material = {
@@ -341,8 +342,7 @@ Vec3 productoCruz(const Vec3& a, const Vec3& b) {
 }
 
 float distancia(const Vec3& a, const Vec3& b) {
-  //return std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2);
-  return std::sqrt(std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2));
+  return std::pow((a.x - b.x), 2) + std::pow((a.y - b.y), 2) + std::pow((a.z - b.z), 2);
 }
 
 Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Material& material, const Vec3& camara) {
@@ -361,8 +361,7 @@ Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Materia
   Vec3 Ia = multiplicarComponente(luz.Lambiental, material.Kambiental);
 
   float dist = distancia(luz.posicion, P);
-  //float dist_inverso = 1.0f / dist;
-  float dist_inverso = 1.0f / (1.0f + 0.09f * dist + 0.032f * (dist * dist)); //1/(a+b*d+c*d^2) 
+  float dist_inverso = 1.0f / dist;
 
   // iluminacion difusa
   float prodPuntoNL = dot(n, l);
@@ -370,10 +369,6 @@ Vec3 calcularPhong(const Vec3& P, const Vec3& n, const Light& luz, const Materia
   Vec3 Id = (multiplicar(multiplicarComponente(luz.Ldifusa, material.Kdifusa), diff * dist_inverso));
   // iluminacion especular
   float spec = 0.0f;
-  /*
-  if (prodPuntoNL > 0.0f) { //si el punto esta iluminado (la luz no esta por detras), se calcula la componente especular
-    spec = std::pow(std::max(dot(r, v), 0.0f), material.alpha);
-  }*/
   spec = std::pow(std::max(dot(r, v), 0.0f), material.alpha);
 
   Vec3 Ie = (multiplicar(multiplicarComponente(luz.Lespecular, material.Kespecular), spec * dist_inverso));
